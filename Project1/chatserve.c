@@ -14,6 +14,10 @@ void error(char *msg) {
     exit(1);
 }
 
+int receiveMessage() {
+
+}
+
 int main(int argc, char *argv[]) {
 
     char buffer[500];
