@@ -1,16 +1,54 @@
 #!/usr/bin/env python3
+"""This program is for the chat client. It is used so that a client can connect to the chat server.
 
+Program: chatclient.py
+Author: Rob Navarro
+Class: CS372
+
+The python socket module is used to handle most of the communication.
+
+Methods:
+    initiate_contact(HOST, PORT):
+    Method used to initiate contact with server.
+
+    Arguments:
+        HOST    -- This is the hostname for the server.
+        PORT    -- This is the port that the chatserver is running on.
+
+    send_message(s)
+    Method used to send message to server.
+
+    Arguments:
+        s       -- This is the socket used for transmission.
+
+    receive_message(s)
+    Method used to receive message from server.
+
+    Arguments:
+        s       -- Thi is the socket used for transmission.
+"""
 import socket
 import sys
 
 
 def initiate_contact(HOST, PORT):
+    """Method used to initiate contact with server.
+
+    Arguments:
+        HOST    -- This is the hostname for the server.
+        PORT    -- This is the port that the chatserver is running on.
+    """
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((HOST, PORT))
     return s
 
 
 def send_message(s):
+    """Method used to send message to server.
+
+    Arguments:
+        s       -- This is the socket used for transmission.
+    """
     quit_sending = False
     print("{}> ".format(handler), end="")
     user_input = input()
@@ -24,6 +62,11 @@ def send_message(s):
 
 
 def receive_message(s):
+    """Method used to receive message from server.
+
+    Arguments:
+        s       -- Thi is the socket used for transmission.
+    """
     quit_sending = False
     received_message = str(s.recv(500), encoding="UTF-8")
 
@@ -37,7 +80,15 @@ def receive_message(s):
 
 
 if __name__ == '__main__':
+    """This is the main driver for the chat client.
 
+    It confirms that the proper input was provided by the user. If the proper input was not provided the program
+    exits. The user is also prompted for a handler of 1 - 10 characters.
+
+    Once input has been confirmed contact is initiated with the server.
+
+    A while loop then continues until the user send \quit or the server sends \quit.
+    """
     if len(sys.argv) != 3:
         print("Usage: python3 chatclient.py [hostname] [port number]")
         exit(1)

@@ -1,4 +1,13 @@
-
+/* chatserve.c
+ * By: Rob Navarro
+ * CS372
+ *
+ * Usage: ./chatserve [port]
+ * This program starts a chat server that can be connected to by different clients.
+ * Several different sources were used while making this program. My main references consisted of:
+ * - http://www.linuxhowtos.org/C_C++/socket.htm
+ * - http://beej.us/guide/bgnet/output/html/multipage/index.html
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,17 +16,89 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-
-
+/*
+ * An error function that prints out the error message and exits the program.
+ * The code is referenced from: http://www.linuxhowtos.org/C_C++/socket.htm
+ */
 void error(char *msg) {
     perror(msg);
     exit(1);
 }
 
-int receiveMessage() {
+/*
+ * This function is used to set up the server.
+ * Much of the code in this section was referenced from:
+ * http://www.linuxhowtos.org/C_C++/socket.htm
+ *
+ * The socket is configured to listen for up to 5 connections.
+ */
+void startUp(int* sockfd, socklen_t* clilen, struct sockaddr_in* cli_add, int portno) {
+    struct sockaddr_in serv_addr;
+
+    *sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0)
+        error("ERROR opening socket");
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(portno);
+    if (bind(*sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+        error("ERROR on binding");
+    listen(*sockfd,5);
+    *clilen = sizeof(cli_add);
+}
+
+/*
+ * This function is used to send a message from the server to the client.
+ * The parameters needed are the socket, buffer, and a reference to quit, which is used to exit the chat client.
+ * The function checks if the server is sending a quit command. If so quit is set to 1.
+ *
+ */
+void sendMessage(int sock, char buffer[], int* quit) {
+    int n;
+
+    printf("Chat_Server> ");
+    bzero(buffer, 500);
+    fgets(buffer, 500, stdin);
+    if(strstr(buffer, "\\quit") != NULL) {
+        *quit = 1;
+    }
+
+    n = write(sock, buffer, strlen(buffer));
+
+    if (n < 0)
+        error("Error sending message");
 
 }
 
+/*
+ * This function is used to send a message from the server to the client.
+ * The parameters needed are the socket, buffer, and a reference to quit, which is used to exit the chat client.
+ * The buffer is checked for \quit after the message is received. If the client sent quit the program exits.
+ */
+void receiveMessage(int sock, char buffer[], int *quit) {
+    int n;
+    bzero(buffer, 500);
+    n = read(sock, buffer, 500);
+    if (n > 0) {
+        if(strstr(buffer, "\\quit") != NULL) {
+            printf("Connection closed by client... exiting.\n");
+            *quit = 1;
+        }
+        else
+            printf("%s", buffer);
+    }
+    else {
+        error("Error receiving message");
+    }
+}
+
+/*
+ * The main function is used to process the work done in the chat server.
+ * A while loop is used to fork of new chat processes as different clients connect.
+ * Another while loop is used to continue the 2 way chat until the client or server sends '\quit'.
+ */
 int main(int argc, char *argv[]) {
 
     char buffer[500];
@@ -25,25 +106,14 @@ int main(int argc, char *argv[]) {
     socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
     int quit = 0;
-    int n;
 
     if (argc < 2) {
         fprintf(stderr,"ERROR, no port provided\n");
         exit(1);
     }
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-        error("ERROR opening socket");
-    bzero((char *) &serv_addr, sizeof(serv_addr));
     portno = atoi(argv[1]);
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(portno);
-    if (bind(sockfd, (struct sockaddr *) &serv_addr,
-             sizeof(serv_addr)) < 0)
-        error("ERROR on binding");
-    listen(sockfd,5);
-    clilen = sizeof(cli_addr);
+
+    startUp(&sockfd, &clilen, &cli_addr, portno);
 
     while(1) {
         newsockfd = accept(sockfd,(struct sockaddr *) &cli_addr, &clilen);
@@ -58,37 +128,15 @@ int main(int argc, char *argv[]) {
         if (pid == 0) {
             close(sockfd);
             while(quit == 0) {
-                bzero(buffer, 500);
-                n = read(newsockfd, buffer, 500);
-                if (n > 0) {
-                    if(strstr(buffer, "\\quit") != NULL) {
-                        printf("Connection closed by client... exiting.\n");
-                        quit = 1;
-                    }
-                    else
-                        printf("%s", buffer);
-                }
-                else {
-                    error("Error receiving message");
-                }
+                receiveMessage(newsockfd, buffer, &quit);
+
                 if (quit == 0) {
-                    printf("Chat_Server> ");
-                    bzero(buffer, 500);
-                    fgets(buffer, 500, stdin);
-                    if(strstr(buffer, "\\quit") != NULL) {
-                        quit = 1;
-                    }
-
-                    n = write(newsockfd, buffer, strlen(buffer));
-
-                    if (n < 0)
-                        error("Error sending message");
+                    sendMessage(newsockfd, buffer, &quit);
                 }
             }
             exit(0);
         }
 
     }
-    close(sockfd);
     return 0;
 }
