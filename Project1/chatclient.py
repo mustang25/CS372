@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """This program is for the chat client. It is used so that a client can connect to the chat server.
+My main refernce for this program was: https://docs.python.org/3/library/socket.html
 
 Program: chatclient.py
 Author: Rob Navarro
@@ -114,7 +115,3 @@ if __name__ == '__main__':
         chat_quit = send_message(server)
         if chat_quit is False:
             chat_quit = receive_message(server)
-
-
-
-

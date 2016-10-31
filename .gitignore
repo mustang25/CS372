@@ -1,5 +1,6 @@
 # User Ignore
 *.mp4
+*.zip
 
 # Object files
 *.o
