@@ -15,7 +15,6 @@ void error(char *msg) {
 }
 
 int main(int argc, char *argv[]) {
-    signal(SIGCHLD,SIG_IGN);
 
     char buffer[500];
     int sockfd, newsockfd, portno, pid;
