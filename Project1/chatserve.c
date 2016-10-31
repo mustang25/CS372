@@ -59,7 +59,7 @@ void sendMessage(int sock, char buffer[], int* quit) {
     int n;
 
     printf("Chat_Server> ");
-    bzero(buffer, 500);
+    bzero(buffer, 512);
     fgets(buffer, 500, stdin);
     if(strstr(buffer, "\\quit") != NULL) {
         *quit = 1;
@@ -79,8 +79,8 @@ void sendMessage(int sock, char buffer[], int* quit) {
  */
 void receiveMessage(int sock, char buffer[], int *quit) {
     int n;
-    bzero(buffer, 500);
-    n = read(sock, buffer, 500);
+    bzero(buffer, 512);
+    n = read(sock, buffer, 512);
     if (n > 0) {
         if(strstr(buffer, "\\quit") != NULL) {
             printf("Connection closed by client... exiting.\n");
@@ -101,7 +101,11 @@ void receiveMessage(int sock, char buffer[], int *quit) {
  */
 int main(int argc, char *argv[]) {
 
-    char buffer[500];
+    /*
+     * The buffer is made to be a bit larger since we receive the handle from the client as well. The extra 12 chars
+     * account for 10charname>. The > and following space add two more chars.
+     */
+    char buffer[512];
     int sockfd, newsockfd, portno, pid;
     socklen_t clilen;
     struct sockaddr_in serv_addr, cli_addr;
