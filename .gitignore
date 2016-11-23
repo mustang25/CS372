@@ -1,6 +1,7 @@
 # User Ignore
 *.mp4
 *.zip
+*.idea
 
 # Object files
 *.o
