@@ -7,6 +7,7 @@
  * Several different sources were used while making this program. My main references consisted of:
  * - http://www.linuxhowtos.org/C_C++/socket.htm
  * - http://beej.us/guide/bgnet/output/html/multipage/index.html
+ * - http://stackoverflow.com/questions/4204666/how-to-list-files-in-a-directory-in-a-c-program
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,6 +16,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <unistd.h>
 #include <dirent.h>
 
 /*
@@ -48,6 +50,7 @@ void startUp(int* sockfd, socklen_t* clilen, struct sockaddr_in* cli_add, int po
         error("ERROR on binding");
     listen(*sockfd,5);
     *clilen = sizeof(cli_add);
+    printf("Server open on %d", portno);
 }
 
 /*
@@ -56,21 +59,25 @@ void startUp(int* sockfd, socklen_t* clilen, struct sockaddr_in* cli_add, int po
  * The function checks if the server is sending a quit command. If so quit is set to 1.
  *
  */
-void sendMessage(int sock, char buffer[], int* quit) {
-    int n;
+void sendMessage(int sock, char* buffer) {
+    ssize_t n;
+    size_t size = strlen(buffer) + 1;
+    size_t total = 0;
 
-    printf("Chat_Server> ");
-    bzero(buffer, 512);
-    fgets(buffer, 500, stdin);
-    if(strstr(buffer, "\\quit") != NULL) {
-        *quit = 1;
+    while (total < size) {
+        n = write(sock, buffer, size - total);
+
+        total += n;
+
+        if (n < 0) {
+            error("Error sending message");
+            exit(1);
+        }
+
+        else if (n == 0) {
+            total = size - total;
+        }
     }
-
-    n = write(sock, buffer, strlen(buffer));
-
-    if (n < 0)
-        error("Error sending message");
-
 }
 
 /*
@@ -78,38 +85,91 @@ void sendMessage(int sock, char buffer[], int* quit) {
  * The parameters needed are the socket, buffer, and a reference to quit, which is used to exit the chat client.
  * The buffer is checked for \quit after the message is received. If the client sent quit the program exits.
  */
-void receiveMessage(int sock, char buffer[], int *quit) {
-    int n;
-    bzero(buffer, 512);
-    n = read(sock, buffer, 512);
-    if (n > 0) {
-        if(strstr(buffer, "\\quit") != NULL) {
-            printf("Connection closed by client... exiting.\n");
-            *quit = 1;
+void receiveMessage(int sock, char* buffer, size_t size) {
+    char tempBuffer[size + 1];
+    ssize_t n;
+    size_t total = 0;
+
+    while (total < size) {
+        n = read(sock, buffer + total, size - total);
+        total += n;
+
+        if (n < 0){
+            error("Error receiving message");
+            exit(1);
         }
-        else
-            printf("%s", buffer);
     }
-    else {
-        error("Error receiving message");
-    }
+
+    strncpy(buffer, tempBuffer, size);
 }
 
 void getDirectory(char* path[]) {
     DIR *d;
     struct dirent *dir;
+
     d = opendir(".");
     if (d) {
         int i = 0;
         while ((dir = readdir(d)) != NULL) {
+
             if (dir->d_type == DT_REG) {
-                printf("%d", dir->d_type);
                 path[i] = dir->d_name;
                 i++;
             }
         }
     }
     closedir(d);
+}
+
+char* readFile(char* fileName) {
+    char *source = NULL;
+
+    FILE* fp = fopen(fileName, "r");
+
+    if (fp == NULL) {
+        printf("Unable to open file %s", fileName);
+    }
+
+    if (fp != NULL) {
+        if (fseek(fp, 0L, SEEK_END) == 0) {
+            long bufSize = ftell(fp);
+            if (bufSize == -1) {
+                error("Invalid file");
+                exit(1);
+            }
+            /* Allocate our buffer to that size. */
+            source = malloc(sizeof(char) * (bufSize + 1));
+
+            /* Go back to the start of the file. */
+            if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
+
+            /* Read the entire file into memory. */
+            size_t newLen = fread(source, sizeof(char), bufSize, fp);
+            if ( ferror( fp ) != 0 ) {
+                fputs("Error reading file", stderr);
+            } else {
+                source[newLen++] = '\0'; /* Just to be safe. */
+            }
+        }
+    }
+    fclose(fp);
+    return source;
+}
+
+int handleRequest(int sock) {
+
+    return 0;
+}
+
+char* concat(const char *s1, const char *s2)
+{
+    const size_t len1 = strlen(s1);
+    const size_t len2 = strlen(s2);
+    char *result = malloc(len1+len2+1);//+1 for the zero-terminator
+    //in real code you would check for errors in malloc here
+    memcpy(result, s1, len1);
+    memcpy(result+len1, s2, len2+1);//+1 to copy the null-terminator
+    return result;
 }
 
 /*
@@ -123,52 +183,34 @@ int main(int argc, char *argv[]) {
      * The buffer is made to be a bit larger since we receive the handle from the client as well. The extra 12 chars
      * account for 10charname>. The > and following space add two more chars.
      */
-//    char buffer[512];
-//    int sockfd, newsockfd, portno, pid;
-//    socklen_t clilen;
-//    struct sockaddr_in serv_addr, cli_addr;
-//    int quit = 0;
-//    int* totalFiles = 0;
-//
-//    if (argc < 2) {
-//        fprintf(stderr,"ERROR, no port provided\n");
-//        exit(1);
-//    }
-//    portno = atoi(argv[1]);
-//
-//    startUp(&sockfd, &clilen, &cli_addr, portno);
-//
-//    while(1) {
-//        newsockfd = accept(sockfd,(struct sockaddr *) &cli_addr, &clilen);
-//        if(newsockfd < 0) {
-//            error("Error on accept");
-//        }
-//        pid = fork();
-//        if (pid < 0) {
-//            error("Error on fork");
-//        }
-//
-//        if (pid == 0) {
-//            close(sockfd);
-//            while(quit == 0) {
-//                receiveMessage(newsockfd, buffer, &quit);
-//
-//                if (quit == 0) {
-//                    sendMessage(newsockfd, buffer, &quit);
-//                }
-//            }
-//            exit(0);
-//        }
-//
-//    }
-    char* path[1000];
-    getDirectory(path);
-    int i = 0;
-    while (path[i] != NULL) {
-        printf("%d. %s\n", i + 1, path[i]);
-        i++;
+    int sockfd, newsockfd, portno, pid;
+    socklen_t clilen;
+    struct sockaddr_in serv_addr, cli_addr;
+    int quit = 0;
+
+    if (argc < 2) {
+        fprintf(stderr,"ERROR, no port provided\n");
+        exit(1);
     }
+    portno = atoi(argv[1]);
 
+    startUp(&sockfd, &clilen, &cli_addr, portno);
 
+    while(1) {
+        newsockfd = accept(sockfd,(struct sockaddr *) &cli_addr, &clilen);
+        if(newsockfd < 0) {
+            error("Error on accept");
+        }
+        pid = fork();
+        if (pid < 0) {
+            error("Error on fork");
+        }
+
+        if (pid == 0) {
+            close(sockfd);
+            exit(0);
+        }
+
+    }
     return 0;
 }
