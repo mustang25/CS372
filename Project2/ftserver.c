@@ -50,7 +50,7 @@ void startUp(int* sockfd, socklen_t* clilen, struct sockaddr_in* cli_add, int po
         error("ERROR on binding");
     listen(*sockfd,5);
     *clilen = sizeof(cli_add);
-    printf("Server open on %d", portno);
+
 }
 
 /*
@@ -193,7 +193,8 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
     portno = atoi(argv[1]);
-
+    
+    printf("Server open on %d", portno);
     startUp(&sockfd, &clilen, &cli_addr, portno);
 
     while(1) {
