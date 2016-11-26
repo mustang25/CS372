@@ -151,15 +151,15 @@ if __name__ == '__main__':
         print(host)
         s.listen(10)
         (conn, addr) = s.accept()
-        with conn:
-            print(addr, "Just connected")
-            print("In conn...")
-            data_size = conn.recv(4)
-            data_size = unpack("I", data_size)
-            received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
 
+        print(addr, "Just connected")
+        print("In conn...")
+        data_size = conn.recv(4)
+        data_size = unpack("I", data_size)
+        received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
 
-            s.close()
+        conn.close()
+        s.close()
         print(socket.gethostname())
 
         for var in received:
