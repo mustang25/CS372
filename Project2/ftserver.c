@@ -61,6 +61,8 @@ void startUpData(int* sockfd, socklen_t* clilen, struct sockaddr_in* cli_add, in
     struct sockaddr_in serv_addr;
     struct hostent *server;
     server = gethostbyname(host);
+    printf("%s\n", host);
+    printf("%s\n", server->h_name);
 
     *sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
