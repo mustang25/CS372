@@ -56,7 +56,8 @@ def start_datasocket(host, port):
     print(host)
     s.listen(10)
     while 1:
-        conn, addr = s.accept()
+        (conn, addr) = s.accept()
+        print(addr, "Just connected")
         with conn:
             print("In conn...")
             data_size = conn.recv(4)
