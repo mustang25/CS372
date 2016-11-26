@@ -44,26 +44,44 @@ def initiate_contact(host, port):
     s.connect((host, port))
     return s
 
+
 def start_datasocket(host, port):
-    print(host)
-    print("starting data socket!")
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    print("socket created")
-    s.bind((host, port))
-    print("starting to listen!")
-    print(host)
-    s.listen(10)
-    while 1:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((host, port))
+        s.listen(1)
         conn, addr = s.accept()
         with conn:
-            print("In conn...")
-            data_size = conn.recv(4)
-            data_size = unpack("I", data_size)
-            received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
-            conn.close()
-            if received is not None:
-                break
+            print('Connected by', addr)
+            while True:
+                print("In conn...")
+                data_size = conn.recv(4)
+                data_size = unpack("I", data_size)
+                received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
+                conn.close()
+                if received is not None:
+                    break
         return received
+    # print(host)
+    # print("starting data socket!")
+    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # print("socket created")
+    # s.bind((host, port))
+    # print("starting to listen!")
+    # print(host)
+    # s.listen(10)
+    # while 1:
+    #     conn, addr = s.accept()
+    #     with conn:
+    #         print("In conn...")
+    #         data_size = conn.recv(4)
+    #         data_size = unpack("I", data_size)
+    #         received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
+    #         conn.close()
+    #         if received is not None:
+    #             break
+    #     return received
+
+
 
 
 def send_message(sock, message):
