@@ -45,7 +45,7 @@ def initiate_contact(host, port):
     return s
 
 def start_datasocket(host, port):
-    print(host, port)
+    print(host)
     print("starting data socket!")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     print("socket created")
@@ -134,7 +134,7 @@ if __name__ == '__main__':
     send_port(server, data_port)
 
     if command == "-l":
-        directory = start_datasocket("", data_port)
+        directory = start_datasocket(socket.gethostname(), data_port)
         print("Receiving directory structure from {}: {}".format(host, data_port))
         for var in directory:
             print(var)
