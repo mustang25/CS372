@@ -30,6 +30,7 @@ Methods:
 """
 import socket
 import sys
+from os import path
 from struct import *
 
 
@@ -46,17 +47,12 @@ def initiate_contact(host, port):
 
 
 def get_dir(sock):
-
-    print(host)
-
     data_size = sock.recv(4)
     data_size = unpack("I", data_size)
     received = str(sock.recv(data_size[0]), encoding="UTF-8").split("\x00")
 
     for val in received:
         print(val)
-
-
 
 
 def send_message(sock, message):
@@ -69,7 +65,7 @@ def send_message(sock, message):
     sock.sendall(to_send)
 
 
-def send_port(sock, message):
+def send_number(sock, message):
     to_send = pack('i', message)
     sock.send(to_send)
 
@@ -80,16 +76,35 @@ def receive_message(sock):
     Arguments:
         s       -- Thi is the socket used for transmission.
     """
-    quit_sending = False
-    received_message = str(sock.recv(500), encoding="UTF-8")
+    data_size = sock.recv(4)
+    data_size = unpack("I", data_size)
+    print("The data size is: {}".format(data_size[0]))
+    # received_msg = str(sock.recv(data_size[0]), encoding="UTF-8");
+    return recvall(sock, data_size[0])
 
-    if received_message == "\\quit\n":
-        print("The server ended the chat session, exiting.")
-        quit_sending = True
-    else:
-        print("Chat_Server> {}".format(received_message), end="")
 
-    return quit_sending
+def recvall(sock, n):
+    received = ""
+    while len(received) < n:
+        packet = str(sock.recv(n - len(received)), encoding="UTF-8")
+        if not packet:
+            return None
+        received += packet
+    return received
+
+
+def make_request(conn, cmd, data):
+    send_message(conn, cmd + "\0")
+    send_number(conn, data)
+
+
+def receive_file(conn, filename):
+    buffer = receive_message(conn)
+    if path.isfile(filename):
+        filename = filename.split(".")[0] + "_copy.txt"
+
+    with open(filename, 'w') as f:
+        f.write(buffer)
 
 
 if __name__ == '__main__':
@@ -111,30 +126,42 @@ if __name__ == '__main__':
     port = int(sys.argv[2])
     command = sys.argv[3]
     data_port = 0
+    filename = ""
+    print(len(sys.argv))
 
-    if len(sys.argv) is 6:
+    if len(sys.argv) is 5:
+        data_port = int(sys.argv[4])
+
+    elif len(sys.argv) is 6:
+        filename = sys.argv[4]
         data_port = int(sys.argv[5])
-
-    elif len(sys.argv) is 7:
-        filename = sys.argv[5]
-        data_port = int(sys.argv[6])
 
     if command not in ["-g", "-l"]:
         raise ValueError("The only commands accepted are -g or -l!")
 
     server = initiate_contact(host, port)
-    send_message(server, command + "\0")
-    send_port(server, data_port)
+    make_request(server, command, data_port)
 
     if command == "-l":
-        print(socket.gethostname())
         data = initiate_contact(host, data_port)
         print("Receiving directory structure from {}: {}".format(host, data_port))
         get_dir(data)
         data.close()
 
+    if command == "-g":
+        print("The length of the file {} is: {}".format(filename, len(filename)))
+        send_number(server, len(filename))
+        send_message(server, filename + "\0")
+
+        result = receive_message(server)
+        if result == "FILE NOT FOUND!":
+            print("{}: {} says {}".format(host, port, result))
+        elif result == "FOUND!":
+            print("The file has been found")
+            data = initiate_contact(host, data_port)
+            print("Data conn started")
+            receive_file(data, filename)
+            data.close()
+
     server.close()
-
-
-
 

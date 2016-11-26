@@ -180,7 +180,7 @@ int receiveNumber(int sock) {
 
 void sendNumber(int sock, int num) {
     ssize_t n = 0;
-    printf("Sending number\n");
+    printf("Sending number %d\n", num);
     n = write(sock, &num, sizeof(int));
     printf("Number sent\n");
     if (n < 0) {
@@ -194,8 +194,6 @@ int handleRequest(int sock, int* dataPort) {
     receiveMessage(sock, command, 3);
     *dataPort = receiveNumber(sock);
 
-    printf("The handler got: %s with length: %zd\n", command, strlen(command));
-    printf("The data port received is: %d\n", *dataPort);
 
     if (strcmp(command, "-l") == 0) {
         return 1;
@@ -208,7 +206,13 @@ int handleRequest(int sock, int* dataPort) {
     return 0;
 }
 
+void sendFile(int sock, char* fileName) {
+    char* toSend;
+    toSend = readFile(fileName);
 
+    sendNumber(sock, strlen(toSend));
+    sendMessage(sock, toSend);
+}
 
 
 /*
@@ -287,7 +291,35 @@ int main(int argc, char *argv[]) {
 
             if (command == 2) {
                 printf("Received -g!\n");
+                int i = receiveNumber(newsockfd);
+                char fileName[255] = "\0";
+                receiveMessage(newsockfd, fileName, i);
+                printf("File \"%s\" requested on port %d\n", fileName, dataPort);
+
+                if (access(fileName, F_OK) == -1) {
+                    printf("File not found. Sending error message to %s: %d\n", clientIP, portno);
+                    char errorMessage[] = "FILE NOT FOUND!";
+                    sendNumber(newsockfd, strlen(errorMessage));
+                    sendMessage(newsockfd, errorMessage);
+                    close(newsockfd);
+                    exit(1);
+                }
+                else {
+                    char message[] = "FOUND!";
+                    sendNumber(newsockfd, strlen(message));
+                    sendMessage(newsockfd, message);
+                }
+
+                startUp(&sockfd, &data_clilen, &data_cli_addr, dataPort);
+                datasockfd = accept(sockfd, (struct sockaddr *) &data_cli_addr, &data_clilen);
+                if (datasockfd < 0) {
+                    error("Unable to open data socket");
+                }
+                close(sockfd);
+
+                sendFile(datasockfd, fileName);
             }
+            close(newsockfd);
             exit(0);
         }
 
