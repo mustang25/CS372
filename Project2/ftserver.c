@@ -198,8 +198,9 @@ int receiveNumber(int sock) {
 
 void sendNumber(int sock, int num) {
     ssize_t n = 0;
+    printf("Sending number\n");
     n = write(sock, &num, sizeof(int));
-
+    printf("Number sent\n");
     if (n < 0) {
         error("Unable to send number through socket.");
     }
