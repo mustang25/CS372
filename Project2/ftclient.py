@@ -49,7 +49,7 @@ def start_datasocket(host, port):
     print("starting datassocket")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind((host, port))
-    s.listen(1)
+    s.listen(5)
     conn, addr = s.accept()
     with conn:
         data_size = conn.recv(4)

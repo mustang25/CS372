@@ -286,7 +286,7 @@ int main(int argc, char *argv[]) {
                 printf("Received -l!\n");
                 printf("List directory requested on port %d.\n", dataPort);
                 length = getDirectory(path);
-                printf("Directory contenets retrieved\n");
+                printf("Directory contents retrieved\n");
 
                 startUpData(&datasockfd,&data_clilen, &data_cli_addr, dataPort, clientIP);
                 sendNumber(datasockfd, length);
