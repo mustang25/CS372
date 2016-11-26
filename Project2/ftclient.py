@@ -203,6 +203,9 @@ if __name__ == '__main__':
     if command not in ["-g", "-l"]:
         raise ValueError("The only commands accepted are -g or -l!")
 
+    if port < 1024 or port > 65535 or data_port < 1024 or data_port > 65525:
+        raise ValueError("Invalid port value, port must be between 1024 and 65535!")
+
     # Start server socket and make initial request
     server = initiate_contact(host, port)
     make_request(server, command, data_port)
