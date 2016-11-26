@@ -49,6 +49,7 @@ def start_datasocket(host, port):
     print("starting datassocket")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.bind((host, port))
+    print("starting to listern!")
     s.listen(5)
     conn, addr = s.accept()
     with conn:
@@ -128,7 +129,7 @@ if __name__ == '__main__':
     send_port(server, data_port)
 
     if command == "-l":
-        directory = start_datasocket("", data_port)
+        directory = start_datasocket("localhost", data_port)
         print("Receiving directory structure from {}: {}".format(host, data_port))
         for var in directory:
             print(var)
