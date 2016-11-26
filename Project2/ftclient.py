@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """This program is for the server client. It is used so that a client can connect to the file transfer server.
-My main reference for this program was: https://docs.python.org/3/library/socket.html
-https://docs.python.org/3.5/library/struct.html
+My main reference for this program was:
+- https://docs.python.org/3/library/socket.html
+- https://docs.python.org/3.5/library/struct.html
+- http://stackoverflow.com/questions/17667903/python-socket-receive-large-amount-of-data
 Program: ftclient.py
 Author: Rob Navarro
 Class: CS372
@@ -131,7 +133,7 @@ def receive_message(sock):
 
 def recvall(sock, n):
     """Helper method used to get entire file transmission.
-
+    - I referenced: http://stackoverflow.com/questions/17667903/python-socket-receive-large-amount-of-data
     Arguments:
         sock        -- This is the socket used for transmission.
         n           -- This is the number of bytes being transmitted.
