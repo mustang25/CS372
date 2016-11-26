@@ -8,6 +8,7 @@
  * - http://www.linuxhowtos.org/C_C++/socket.htm
  * - http://beej.us/guide/bgnet/output/html/multipage/index.html
  * - http://stackoverflow.com/questions/4204666/how-to-list-files-in-a-directory-in-a-c-program
+ * - http://beej.us/guide/bgnet/output/html/multipage/inet_ntopman.html
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,6 +17,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <dirent.h>
 
@@ -33,7 +36,7 @@ void error(char *msg) {
  * Much of the code in this section was referenced from:
  * http://www.linuxhowtos.org/C_C++/socket.htm
  *
- * The socket is configured to listen for up to 5 connections.
+ * The socket is configured to listen for up to 10 connections.
  */
 void startUp(int* sockfd, socklen_t* clilen, struct sockaddr_in* cli_add, int portno) {
     struct sockaddr_in serv_addr;
@@ -48,9 +51,27 @@ void startUp(int* sockfd, socklen_t* clilen, struct sockaddr_in* cli_add, int po
     serv_addr.sin_port = htons(portno);
     if (bind(*sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
         error("ERROR on binding");
-    listen(*sockfd,5);
     *clilen = sizeof(cli_add);
+    if (listen(*sockfd, 10) < 0) {
+        error("Unable to listen on socket");
+    }
+}
 
+void startUpData(int* sockfd, socklen_t* clilen, struct sockaddr_in* cli_add, int portno, char* host) {
+    struct sockaddr_in serv_addr;
+    struct hostent *server;
+    server = gethostbyname(host);
+
+    *sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0)
+        error("ERROR opening socket");
+    bzero((char *) &serv_addr, sizeof(serv_addr));
+    bcopy(server->h_addr,
+          (char *)&serv_addr.sin_addr.s_addr,
+          server->h_length);
+    serv_addr.sin_port = htons(portno);
+    if (connect(*sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
+        error("ERROR connecting");
 }
 
 /*
@@ -89,23 +110,27 @@ void receiveMessage(int sock, char* buffer, size_t size) {
     char tempBuffer[size + 1];
     ssize_t n;
     size_t total = 0;
+    printf("Receiving message\n");
 
     while (total < size) {
-        n = read(sock, buffer + total, size - total);
+        n = read(sock, tempBuffer + total, size - total);
         total += n;
-
         if (n < 0){
             error("Error receiving message");
             exit(1);
         }
     }
+    printf("The message received is: %s\n", tempBuffer);
+    printf("Message received!\n");
 
     strncpy(buffer, tempBuffer, size);
 }
 
-void getDirectory(char* path[]) {
+
+int getDirectory(char* path[]) {
     DIR *d;
     struct dirent *dir;
+    int totalSize = 0;
 
     d = opendir(".");
     if (d) {
@@ -114,11 +139,13 @@ void getDirectory(char* path[]) {
 
             if (dir->d_type == DT_REG) {
                 path[i] = dir->d_name;
+                totalSize += strlen(path[i]);
                 i++;
             }
         }
     }
     closedir(d);
+    return totalSize;
 }
 
 char* readFile(char* fileName) {
@@ -156,21 +183,48 @@ char* readFile(char* fileName) {
     return source;
 }
 
-int handleRequest(int sock) {
+int receiveNumber(int sock) {
+    int num;
+    ssize_t n = 0;
+    n = read(sock, &num, sizeof(int));
+
+    if (n < 0) {
+        error("Unable to receive number through socket.");
+    }
+    return (num);
+}
+
+void sendNumber(int sock, int num) {
+    ssize_t n = 0;
+    n = write(sock, &num, sizeof(int));
+
+    if (n < 0) {
+        error("Unable to send number through socket.");
+    }
+}
+
+int handleRequest(int sock, int* dataPort) {
+    char command[3] = "\0";
+
+    receiveMessage(sock, command, 3);
+    *dataPort = receiveNumber(sock);
+
+    printf("The handler got: %s with length: %zd\n", command, strlen(command));
+    printf("The data port received is: %d\n", *dataPort);
+
+    if (strcmp(command, "-l") == 0) {
+        return 1;
+    }
+
+    if (strcmp(command, "-g") == 0) {
+        return 2;
+    }
 
     return 0;
 }
 
-char* concat(const char *s1, const char *s2)
-{
-    const size_t len1 = strlen(s1);
-    const size_t len2 = strlen(s2);
-    char *result = malloc(len1+len2+1);//+1 for the zero-terminator
-    //in real code you would check for errors in malloc here
-    memcpy(result, s1, len1);
-    memcpy(result+len1, s2, len2+1);//+1 to copy the null-terminator
-    return result;
-}
+
+
 
 /*
  * The main function is used to process the work done in the chat server.
@@ -183,35 +237,72 @@ int main(int argc, char *argv[]) {
      * The buffer is made to be a bit larger since we receive the handle from the client as well. The extra 12 chars
      * account for 10charname>. The > and following space add two more chars.
      */
-    int sockfd, newsockfd, portno, pid;
-    socklen_t clilen;
-    struct sockaddr_in serv_addr, cli_addr;
+    int sockfd, newsockfd, datasockfd, portno, pid;
+    socklen_t clilen, data_clilen;
+    struct sockaddr_in serv_addr, cli_addr, data_serv_addr, data_cli_addr;
     int quit = 0;
 
     if (argc < 2) {
-        fprintf(stderr,"ERROR, no port provided\n");
+        error("Usage: ftserver [portNumber]\n");
         exit(1);
     }
+
     portno = atoi(argv[1]);
-    
-    printf("Server open on %d", portno);
+    if (portno < 1024 || portno > 65535) {
+        error("Invalid port number! Must be within 1024 - 65535\n");
+    }
+
     startUp(&sockfd, &clilen, &cli_addr, portno);
+    printf("Server open on %d\n", portno);
 
     while(1) {
         newsockfd = accept(sockfd,(struct sockaddr *) &cli_addr, &clilen);
         if(newsockfd < 0) {
-            error("Error on accept");
+            error("Error on accept\n");
         }
         pid = fork();
         if (pid < 0) {
-            error("Error on fork");
+            error("Error on fork\n");
         }
 
         if (pid == 0) {
             close(sockfd);
+            int command = 0;
+            int dataPort;
+            char clientIP[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &(cli_addr.sin_addr), clientIP, INET_ADDRSTRLEN);
+
+            printf("Connection from %s.\n", clientIP);
+            command = handleRequest(newsockfd, &dataPort);
+
+            if (command == 0) {
+                printf("Did not receive -l\n");
+            }
+
+            if (command == 1) {
+                char* path[100];
+                int i = 0;
+                int length = 0;
+                printf("Received -l!\n");
+                printf("List directory requested on port %d.\n", dataPort);
+                length = getDirectory(path);
+
+                startUpData(&datasockfd,&data_clilen, &data_cli_addr, dataPort, clientIP);
+                sendNumber(datasockfd, length);
+                while (path[i] != NULL) {
+                    sendMessage(datasockfd, path[i]);
+                    i++;
+                }
+
+            }
+
+            if (command == 2) {
+                printf("Received -g!\n");
+            }
             exit(0);
         }
 
     }
+
     return 0;
 }
