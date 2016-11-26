@@ -45,18 +45,20 @@ def initiate_contact(host, port):
     return s
 
 def start_datasocket(host, port):
-
-    print("starting datassocket")
+    print(host, port)
+    print("starting data socket!")
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    print("socket created")
     s.bind((host, port))
-    print("starting to listern!")
-    s.listen(5)
-    conn, addr = s.accept()
-    with conn:
-        data_size = conn.recv(4)
-        data_size = unpack("I", data_size)
-        received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
-        conn.close()
+    print("starting to listen!")
+    s.listen(10)
+    while  1:
+        conn, addr = s.accept()
+        with conn:
+            data_size = conn.recv(4)
+            data_size = unpack("I", data_size)
+            received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
+            conn.close()
         return received
 
 
@@ -73,7 +75,6 @@ def send_message(sock, message):
 def send_port(sock, message):
     to_send = pack('i', message)
     sock.send(to_send)
-
 
 
 def receive_message(sock):

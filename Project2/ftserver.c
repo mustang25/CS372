@@ -293,7 +293,7 @@ int main(int argc, char *argv[]) {
                 sendNumber(datasockfd, length);
                 printf("Number sent!\n");
                 while (path[i] != NULL) {
-                    ("Sending contents %d", i);
+                    printf("Sending contents %d\n", i);
                     sendMessage(datasockfd, path[i]);
                     i++;
                 }
