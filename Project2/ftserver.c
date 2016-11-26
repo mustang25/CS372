@@ -57,24 +57,6 @@ void startUp(int* sockfd, socklen_t* clilen, struct sockaddr_in* cli_add, int po
     }
 }
 
-void startUpData(int* sockfd, socklen_t* clilen, struct sockaddr_in* cli_add, int portno, char* host) {
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
-    server = gethostbyname(host);
-    printf("%s\n", host);
-    printf("%s\n", server->h_name);
-
-    *sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-        error("ERROR opening socket");
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    bcopy(server->h_addr,
-          (char *)&serv_addr.sin_addr.s_addr,
-          server->h_length);
-    serv_addr.sin_port = htons(portno);
-    if (connect(*sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0)
-        error("ERROR connecting");
-}
 
 /*
  * This function is used to send a message from the server to the client.
@@ -291,7 +273,12 @@ int main(int argc, char *argv[]) {
                 length = getDirectory(path);
                 printf("Directory contents retrieved\n");
 
-                startUpData(&datasockfd,&data_clilen, &data_cli_addr, dataPort, clientIP);
+                startUp(&sockfd, &data_clilen, &data_cli_addr, dataPort);
+                datasockfd = accept(sockfd, (struct sockaddr *) &data_cli_addr, &data_clilen);
+                if (datasockfd < 0) {
+                    error("Unable to open data socket");
+                }
+                close(sockfd);
                 printf("Connection Established!\n");
                 sendNumber(datasockfd, length);
                 printf("Number sent!\n");
@@ -300,7 +287,7 @@ int main(int argc, char *argv[]) {
                     sendMessage(datasockfd, path[i]);
                     i++;
                 }
-
+                close(datasockfd);
             }
 
             if (command == 2) {
