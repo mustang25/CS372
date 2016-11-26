@@ -141,10 +141,30 @@ if __name__ == '__main__':
     send_port(server, data_port)
 
     if command == "-l":
-        print(socket.gethostname())
-        directory = start_datasocket("0.0.0.0", data_port)
+        print(host)
+        print(port)
+        print("starting data socket!")
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print("socket created")
+        s.bind(("0.0.0.0", data_port))
+        print("starting to listen!")
+        print(host)
+        s.listen(10)
+        (conn, addr) = s.accept()
+        while 1:
+            print(addr, "Just connected")
+            with conn:
+                print("In conn...")
+                data_size = conn.recv(4)
+                data_size = unpack("I", data_size)
+                received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
 
-        for var in directory:
+                if received is not None:
+                    break
+            s.close()
+        print(socket.gethostname())
+
+        for var in received:
             print(var)
 
     server.close()
