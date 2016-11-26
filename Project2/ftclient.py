@@ -47,42 +47,28 @@ def initiate_contact(host, port):
 
 def start_datasocket(host, port):
 
-    HOST = ''  # Symbolic name meaning all available interfaces
-    PORT = port  # Arbitrary non-privileged port
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.bind((HOST, PORT))
-        s.listen(1)
-        conn, addr = s.accept()
+    print(host)
+    print(port)
+    print("starting data socket!")
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    print("socket created")
+    s.bind((host, port))
+    print("starting to listen!")
+    print(host)
+    s.listen(10)
+    (conn, addr) = s.accept()
+    while 1:
+        print(addr, "Just connected")
         with conn:
-            print('Connected by', addr)
-            while True:
-                print("In conn...")
-                data_size = conn.recv(4)
-                data_size = unpack("I", data_size)
-                received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
-    #
-    # print(host)
-    # print(port)
-    # print("starting data socket!")
-    # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # print("socket created")
-    # s.bind((host, port))
-    # print("starting to listen!")
-    # print(host)
-    # s.listen(10)
-    # (conn, addr) = s.accept()
-    # while 1:
-    #     print(addr, "Just connected")
-    #     with conn:
-    #         print("In conn...")
-    #         data_size = conn.recv(4)
-    #         data_size = unpack("I", data_size)
-    #         received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
-    #
-    #         if received is not None:
-    #             break
-    #     conn.close()
-        return received
+            print("In conn...")
+            data_size = conn.recv(4)
+            data_size = unpack("I", data_size)
+            received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
+
+            if received is not None:
+                break
+        conn.close()
+    return received
 
 
 
@@ -156,7 +142,7 @@ if __name__ == '__main__':
 
     if command == "-l":
         print(socket.gethostname())
-        directory = start_datasocket(socket.gethostname(), data_port)
+        directory = start_datasocket("0.0.0.0", data_port)
 
         for var in directory:
             print(var)
