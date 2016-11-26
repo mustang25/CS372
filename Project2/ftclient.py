@@ -52,13 +52,16 @@ def start_datasocket(host, port):
     s.bind((host, port))
     print("starting to listen!")
     s.listen(10)
-    while  1:
+    while 1:
         conn, addr = s.accept()
         with conn:
+            print("In conn...")
             data_size = conn.recv(4)
             data_size = unpack("I", data_size)
             received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
             conn.close()
+            if received is not None:
+                break
         return received
 
 
