@@ -289,6 +289,7 @@ int main(int argc, char *argv[]) {
                 printf("Directory contents retrieved\n");
 
                 startUpData(&datasockfd,&data_clilen, &data_cli_addr, dataPort, clientIP);
+                printf("Connection Established!\n");
                 sendNumber(datasockfd, length);
                 while (path[i] != NULL) {
                     sendMessage(datasockfd, path[i]);
