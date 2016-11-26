@@ -32,6 +32,7 @@ import socket
 import sys
 from os import path
 from struct import *
+from time import sleep
 
 
 def initiate_contact(host, port):
@@ -78,7 +79,6 @@ def receive_message(sock):
     """
     data_size = sock.recv(4)
     data_size = unpack("I", data_size)
-    print("The data size is: {}".format(data_size[0]))
     # received_msg = str(sock.recv(data_size[0]), encoding="UTF-8");
     return recvall(sock, data_size[0])
 
@@ -127,7 +127,6 @@ if __name__ == '__main__':
     command = sys.argv[3]
     data_port = 0
     filename = ""
-    print(len(sys.argv))
 
     if len(sys.argv) is 5:
         data_port = int(sys.argv[4])
@@ -143,13 +142,13 @@ if __name__ == '__main__':
     make_request(server, command, data_port)
 
     if command == "-l":
+        sleep(1)
         data = initiate_contact(host, data_port)
         print("Receiving directory structure from {}: {}".format(host, data_port))
         get_dir(data)
         data.close()
 
     if command == "-g":
-        print("The length of the file {} is: {}".format(filename, len(filename)))
         send_number(server, len(filename))
         send_message(server, filename + "\0")
 
@@ -157,10 +156,11 @@ if __name__ == '__main__':
         if result == "FILE NOT FOUND!":
             print("{}: {} says {}".format(host, port, result))
         elif result == "FOUND!":
-            print("The file has been found")
+            print("Receiving \"{}\" from {}: {}".format(filename, host, data_port))
+            sleep(1)
             data = initiate_contact(host, data_port)
-            print("Data conn started")
             receive_file(data, filename)
+            print("File transfer complete!")
             data.close()
 
     server.close()

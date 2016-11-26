@@ -2,6 +2,8 @@
 *.mp4
 *.zip
 .idea
+*_copy.txt
+ftserver
 
 # Object files
 *.o

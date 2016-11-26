@@ -38,23 +38,38 @@ void error(char *msg) {
  *
  * The socket is configured to listen for up to 10 connections.
  */
-void startUp(int* sockfd, socklen_t* clilen, struct sockaddr_in* cli_add, int portno) {
-    struct sockaddr_in serv_addr;
+int startUp(int portno) {
+    int sockfd;
 
-    *sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
-        error("ERROR opening socket");
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(portno);
-    if (bind(*sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
-        error("ERROR on binding");
-    *clilen = sizeof(cli_add);
-    if (listen(*sockfd, 10) < 0) {
-        error("Unable to listen on socket");
+    // failure
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
+        return -1;
     }
+
+    // some necessary structs and info
+    struct sockaddr_in server;
+    server.sin_family = AF_INET;
+    server.sin_port = htons(portno);
+    server.sin_addr.s_addr = INADDR_ANY;
+
+// http://beej.us/guide/bgnet/output/html/singlepage/bgnet.html#setsockoptman
+/*******************************************************************************/
+    int optval = 1;
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
+/*******************************************************************************/
+
+    // failure
+    if(bind(sockfd, (struct sockaddr *) &server, sizeof(server)) < 0){
+        return -1;
+    }
+
+    // failure
+    if(listen(sockfd, 10) < 0){
+        return -1;
+    }
+
+    // success
+    return sockfd;
 }
 
 
@@ -94,7 +109,6 @@ void receiveMessage(int sock, char* buffer, size_t size) {
     char tempBuffer[size + 1];
     ssize_t n;
     size_t total = 0;
-    printf("Receiving message\n");
 
     while (total < size) {
         n = read(sock, tempBuffer + total, size - total);
@@ -104,9 +118,6 @@ void receiveMessage(int sock, char* buffer, size_t size) {
             exit(1);
         }
     }
-    printf("The message received is: %s\n", tempBuffer);
-    printf("Message received!\n");
-
     strncpy(buffer, tempBuffer, size);
 }
 
@@ -115,6 +126,7 @@ int getDirectory(char* path[]) {
     DIR *d;
     struct dirent *dir;
     int totalSize = 0;
+    int totalFiles = 0;
 
     d = opendir(".");
     if (d) {
@@ -127,9 +139,10 @@ int getDirectory(char* path[]) {
                 i++;
             }
         }
+        totalFiles = i - 1;
     }
     closedir(d);
-    return totalSize;
+    return totalSize + totalFiles;
 }
 
 char* readFile(char* fileName) {
@@ -138,7 +151,7 @@ char* readFile(char* fileName) {
     FILE* fp = fopen(fileName, "r");
 
     if (fp == NULL) {
-        printf("Unable to open file %s", fileName);
+        error("Unable to open file");
     }
 
     if (fp != NULL) {
@@ -180,9 +193,8 @@ int receiveNumber(int sock) {
 
 void sendNumber(int sock, int num) {
     ssize_t n = 0;
-    printf("Sending number %d\n", num);
+
     n = write(sock, &num, sizeof(int));
-    printf("Number sent\n");
     if (n < 0) {
         error("Unable to send number through socket.");
     }
@@ -241,11 +253,11 @@ int main(int argc, char *argv[]) {
         error("Invalid port number! Must be within 1024 - 65535\n");
     }
 
-    startUp(&sockfd, &clilen, &cli_addr, portno);
+    sockfd = startUp(portno);
     printf("Server open on %d\n", portno);
 
     while(1) {
-        newsockfd = accept(sockfd,(struct sockaddr *) &cli_addr, &clilen);
+        newsockfd = accept(sockfd,NULL, NULL);
         if(newsockfd < 0) {
             error("Error on accept\n");
         }
@@ -258,6 +270,7 @@ int main(int argc, char *argv[]) {
             close(sockfd);
             int command = 0;
             int dataPort;
+            int newsock;
             char clientIP[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &(cli_addr.sin_addr), clientIP, INET_ADDRSTRLEN);
 
@@ -275,22 +288,22 @@ int main(int argc, char *argv[]) {
                 printf("List directory requested on port %d.\n", dataPort);
                 length = getDirectory(path);
 
-                startUp(&sockfd, &data_clilen, &data_cli_addr, dataPort);
-                datasockfd = accept(sockfd, (struct sockaddr *) &data_cli_addr, &data_clilen);
+                newsock = startUp(dataPort);
+                datasockfd = accept(newsock, NULL, NULL);
                 if (datasockfd < 0) {
                     error("Unable to open data socket");
                 }
-                close(sockfd);
                 sendNumber(datasockfd, length);
                 while (path[i] != NULL) {
                     sendMessage(datasockfd, path[i]);
                     i++;
                 }
+                close(newsock);
                 close(datasockfd);
+                exit(0);
             }
 
             if (command == 2) {
-                printf("Received -g!\n");
                 int i = receiveNumber(newsockfd);
                 char fileName[255] = "\0";
                 receiveMessage(newsockfd, fileName, i);
@@ -301,7 +314,8 @@ int main(int argc, char *argv[]) {
                     char errorMessage[] = "FILE NOT FOUND!";
                     sendNumber(newsockfd, strlen(errorMessage));
                     sendMessage(newsockfd, errorMessage);
-                    close(newsockfd);
+                    close(newsock);
+                    close(datasockfd);
                     exit(1);
                 }
                 else {
@@ -309,21 +323,20 @@ int main(int argc, char *argv[]) {
                     sendNumber(newsockfd, strlen(message));
                     sendMessage(newsockfd, message);
                 }
-
-                startUp(&sockfd, &data_clilen, &data_cli_addr, dataPort);
-                datasockfd = accept(sockfd, (struct sockaddr *) &data_cli_addr, &data_clilen);
+                printf("Sending \"%s\" to %s: %d\n", fileName, clientIP, dataPort);
+                
+                newsock = startUp(dataPort);
+                datasockfd = accept(newsock, NULL, NULL);
                 if (datasockfd < 0) {
                     error("Unable to open data socket");
                 }
-                close(sockfd);
-
                 sendFile(datasockfd, fileName);
+                close(newsock);
+                close(datasockfd);
+                exit(0);
             }
-            close(newsockfd);
             exit(0);
         }
 
     }
-
-    return 0;
 }
