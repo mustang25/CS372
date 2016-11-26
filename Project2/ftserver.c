@@ -268,10 +268,8 @@ int main(int argc, char *argv[]) {
                 char* path[100];
                 int i = 0;
                 int length = 0;
-                printf("Received -l!\n");
                 printf("List directory requested on port %d.\n", dataPort);
                 length = getDirectory(path);
-                printf("Directory contents retrieved\n");
 
                 startUp(&sockfd, &data_clilen, &data_cli_addr, dataPort);
                 datasockfd = accept(sockfd, (struct sockaddr *) &data_cli_addr, &data_clilen);
@@ -279,11 +277,8 @@ int main(int argc, char *argv[]) {
                     error("Unable to open data socket");
                 }
                 close(sockfd);
-                printf("Connection Established!\n");
                 sendNumber(datasockfd, length);
-                printf("Number sent!\n");
                 while (path[i] != NULL) {
-                    printf("Sending contents %d\n", i);
                     sendMessage(datasockfd, path[i]);
                     i++;
                 }

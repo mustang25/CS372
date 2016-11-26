@@ -30,7 +30,6 @@ Methods:
 """
 import socket
 import sys
-import time
 from struct import *
 
 
@@ -47,9 +46,7 @@ def initiate_contact(host, port):
 
 
 def get_dir(sock):
-    print("starting data socket!")
-    print("socket created")
-    print("starting to listen!")
+
     print(host)
 
     data_size = sock.recv(4)
@@ -132,6 +129,7 @@ if __name__ == '__main__':
     if command == "-l":
         print(socket.gethostname())
         data = initiate_contact(host, data_port)
+        print("Receiving directory structure from {}: {}".format(host, data_port))
         get_dir(data)
         data.close()
 
