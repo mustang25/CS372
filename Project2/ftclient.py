@@ -154,7 +154,8 @@ if __name__ == '__main__':
     send_port(server, data_port)
 
     if command == "-l":
-        directory = start_datasocket("", data_port)
+        print(socket.gethostname())
+        directory = start_datasocket(socket.gethostname(), data_port)
 
         for var in directory:
             print(var)
