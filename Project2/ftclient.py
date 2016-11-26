@@ -51,6 +51,7 @@ def start_datasocket(host, port):
     print("socket created")
     s.bind((host, port))
     print("starting to listen!")
+    print(host)
     s.listen(10)
     while 1:
         conn, addr = s.accept()
@@ -133,7 +134,7 @@ if __name__ == '__main__':
     send_port(server, data_port)
 
     if command == "-l":
-        directory = start_datasocket("localhost", data_port)
+        directory = start_datasocket("", data_port)
         print("Receiving directory structure from {}: {}".format(host, data_port))
         for var in directory:
             print(var)
