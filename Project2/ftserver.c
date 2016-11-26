@@ -1,14 +1,15 @@
-/* chatserve.c
+/* ftserver.c
  * By: Rob Navarro
  * CS372
  *
- * Usage: ./chatserve [port]
- * This program starts a chat server that can be connected to by different clients.
+ * Usage: ./ftserver [port]
+ * This program starts a file transfer server that is connected to with the port provided.
  * Several different sources were used while making this program. My main references consisted of:
  * - http://www.linuxhowtos.org/C_C++/socket.htm
  * - http://beej.us/guide/bgnet/output/html/multipage/index.html
  * - http://stackoverflow.com/questions/4204666/how-to-list-files-in-a-directory-in-a-c-program
  * - http://beej.us/guide/bgnet/output/html/multipage/inet_ntopman.html
+ * - http://stackoverflow.com/questions/2029103/correct-way-to-read-a-text-file-into-a-buffer-in-c
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -17,9 +18,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netdb.h>
 #include <arpa/inet.h>
-#include <unistd.h>
 #include <dirent.h>
 
 /*
@@ -41,7 +40,6 @@ void error(char *msg) {
 int startUp(int portno) {
     int sockfd;
 
-    // failure
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0){
         return -1;
     }
@@ -52,32 +50,24 @@ int startUp(int portno) {
     server.sin_port = htons(portno);
     server.sin_addr.s_addr = INADDR_ANY;
 
-// http://beej.us/guide/bgnet/output/html/singlepage/bgnet.html#setsockoptman
-/*******************************************************************************/
     int optval = 1;
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
-/*******************************************************************************/
 
-    // failure
     if(bind(sockfd, (struct sockaddr *) &server, sizeof(server)) < 0){
-        return -1;
+        error("Unable to bind!");
     }
 
-    // failure
     if(listen(sockfd, 10) < 0){
-        return -1;
+        error("Unable to listen");
     }
 
-    // success
     return sockfd;
 }
 
 
 /*
  * This function is used to send a message from the server to the client.
- * The parameters needed are the socket, buffer, and a reference to quit, which is used to exit the chat client.
- * The function checks if the server is sending a quit command. If so quit is set to 1.
- *
+ * The parameters needed are the socket and buffer
  */
 void sendMessage(int sock, char* buffer) {
     ssize_t n;
@@ -101,9 +91,9 @@ void sendMessage(int sock, char* buffer) {
 }
 
 /*
- * This function is used to send a message from the server to the client.
- * The parameters needed are the socket, buffer, and a reference to quit, which is used to exit the chat client.
- * The buffer is checked for \quit after the message is received. If the client sent quit the program exits.
+ * This function is used to recieve a message from the client
+ * The parameters needed are the socket, buffer, and a size of the message.
+ * The function will continue to try and read the data until all bytes are read.
  */
 void receiveMessage(int sock, char* buffer, size_t size) {
     char tempBuffer[size + 1];
@@ -121,7 +111,11 @@ void receiveMessage(int sock, char* buffer, size_t size) {
     strncpy(buffer, tempBuffer, size);
 }
 
-
+/*
+ * This function is ued to get the contents of the directory.
+ * For reference I used: http://stackoverflow.com/questions/4204666/how-to-list-files-in-a-directory-in-a-c-program
+ * The function requires that the path be passed in and an array of char pointers are returned.
+ */
 int getDirectory(char* path[]) {
     DIR *d;
     struct dirent *dir;
@@ -145,6 +139,11 @@ int getDirectory(char* path[]) {
     return totalSize + totalFiles;
 }
 
+/*
+ * This function is used to read the contents of a file into a buffer.
+ * I used the following: http://stackoverflow.com/questions/2029103/correct-way-to-read-a-text-file-into-a-buffer-in-c
+ * A char pointer is returned with reference to the buffer.
+ */
 char* readFile(char* fileName) {
     char *source = NULL;
 
@@ -165,7 +164,9 @@ char* readFile(char* fileName) {
             source = malloc(sizeof(char) * (bufSize + 1));
 
             /* Go back to the start of the file. */
-            if (fseek(fp, 0L, SEEK_SET) != 0) { /* Error */ }
+            if (fseek(fp, 0L, SEEK_SET) != 0) {
+                error("Unable to read file");
+            }
 
             /* Read the entire file into memory. */
             size_t newLen = fread(source, sizeof(char), bufSize, fp);
@@ -180,6 +181,11 @@ char* readFile(char* fileName) {
     return source;
 }
 
+/*
+ * This function is used to receive numbers.
+ * A socket arg is required.
+ * It returns the number received.
+ */
 int receiveNumber(int sock) {
     int num;
     ssize_t n = 0;
@@ -191,6 +197,9 @@ int receiveNumber(int sock) {
     return (num);
 }
 
+/*
+ * This function is used to send a number. A socket arg is required.
+ */
 void sendNumber(int sock, int num) {
     ssize_t n = 0;
 
@@ -200,6 +209,10 @@ void sendNumber(int sock, int num) {
     }
 }
 
+/*
+ * This function is used to handle the initial request from the client.
+ * It returns a number that represents the request from the user.
+ */
 int handleRequest(int sock, int* dataPort) {
     char command[3] = "\0";
 
@@ -218,6 +231,10 @@ int handleRequest(int sock, int* dataPort) {
     return 0;
 }
 
+/*
+ * This function is used to send a file to the client.
+ * A socket is required as well as a pointer to the file.
+ */
 void sendFile(int sock, char* fileName) {
     char* toSend;
     toSend = readFile(fileName);
@@ -228,20 +245,14 @@ void sendFile(int sock, char* fileName) {
 
 
 /*
- * The main function is used to process the work done in the chat server.
- * A while loop is used to fork of new chat processes as different clients connect.
- * Another while loop is used to continue the 2 way chat until the client or server sends '\quit'.
+ * This main function is the driver for the file transfer server. The inner while loop handles each connection to the server.
  */
 int main(int argc, char *argv[]) {
 
     /*
-     * The buffer is made to be a bit larger since we receive the handle from the client as well. The extra 12 chars
-     * account for 10charname>. The > and following space add two more chars.
+     * Setting up the int args needed.
      */
     int sockfd, newsockfd, datasockfd, portno, pid;
-    socklen_t clilen, data_clilen;
-    struct sockaddr_in serv_addr, cli_addr, data_serv_addr, data_cli_addr;
-    int quit = 0;
 
     if (argc < 2) {
         error("Usage: ftserver [portNumber]\n");
@@ -253,11 +264,12 @@ int main(int argc, char *argv[]) {
         error("Invalid port number! Must be within 1024 - 65535\n");
     }
 
+    //Set up initial socket
     sockfd = startUp(portno);
     printf("Server open on %d\n", portno);
 
     while(1) {
-        newsockfd = accept(sockfd,NULL, NULL);
+        newsockfd = accept(sockfd, NULL, NULL);
         if(newsockfd < 0) {
             error("Error on accept\n");
         }
@@ -271,16 +283,21 @@ int main(int argc, char *argv[]) {
             int command = 0;
             int dataPort;
             int newsock;
-            char clientIP[INET_ADDRSTRLEN];
-            inet_ntop(AF_INET, &(cli_addr.sin_addr), clientIP, INET_ADDRSTRLEN);
 
-            printf("Connection from %s.\n", clientIP);
+
+            printf("Control connection started on port %d.\n", portno);
             command = handleRequest(newsockfd, &dataPort);
 
+            /*
+             * The client handles receiving the proper commands but just in case we can catch an error here.
+             */
             if (command == 0) {
-                printf("Did not receive -l\n");
+                error("Did not receive -l or -g");
             }
 
+            /*
+             * This is the command for returning the contents of the current directory.
+             */
             if (command == 1) {
                 char* path[100];
                 int i = 0;
@@ -303,6 +320,10 @@ int main(int argc, char *argv[]) {
                 exit(0);
             }
 
+            /*
+             * This is the command for sending a file. We check to make sure that the file is actually in the directory
+             * before we attempt to send it.
+             */
             if (command == 2) {
                 int i = receiveNumber(newsockfd);
                 char fileName[255] = "\0";
@@ -310,7 +331,7 @@ int main(int argc, char *argv[]) {
                 printf("File \"%s\" requested on port %d\n", fileName, dataPort);
 
                 if (access(fileName, F_OK) == -1) {
-                    printf("File not found. Sending error message to %s: %d\n", clientIP, portno);
+                    printf("File not found. Sending error message on port %d\n", portno);
                     char errorMessage[] = "FILE NOT FOUND!";
                     sendNumber(newsockfd, strlen(errorMessage));
                     sendMessage(newsockfd, errorMessage);
@@ -323,8 +344,8 @@ int main(int argc, char *argv[]) {
                     sendNumber(newsockfd, strlen(message));
                     sendMessage(newsockfd, message);
                 }
-                printf("Sending \"%s\" to %s: %d\n", fileName, clientIP, dataPort);
-                
+                printf("Sending \"%s\" on port %d\n", fileName, dataPort);
+
                 newsock = startUp(dataPort);
                 datasockfd = accept(newsock, NULL, NULL);
                 if (datasockfd < 0) {

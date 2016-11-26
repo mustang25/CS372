@@ -1,32 +1,67 @@
 #!/usr/bin/env python3
-"""This program is for the chat client. It is used so that a client can connect to the chat server.
-My main refernce for this program was: https://docs.python.org/3/library/socket.html
+"""This program is for the server client. It is used so that a client can connect to the file transfer server.
+My main reference for this program was: https://docs.python.org/3/library/socket.html
 https://docs.python.org/3.5/library/struct.html
-Program: chatclient.py
+Program: ftclient.py
 Author: Rob Navarro
 Class: CS372
 
-The python socket module is used to handle most of the communication.
+The python socket module is used to handle communication.
 
 Methods:
-    initiate_contact(HOST, PORT):
+initiate_contact(host, port):
     Method used to initiate contact with server.
 
     Arguments:
-        HOST    -- This is the hostname for the server.
-        PORT    -- This is the port that the chatserver is running on.
+        host    -- This is the hostname for the server.
+        port    -- This is the port that the ftserver is running on.
 
-    send_message(s)
+get_dir(sock):
+    Method to get contents of server directory.
+    Arguments:
+        sock        -- This is the socket used for transmission.
+
+send_message(sock, message):
     Method used to send message to server.
 
     Arguments:
-        s       -- This is the socket used for transmission.
+        sock        -- This is the socket used for transmission.
+        message     -- This is the message to be sent.
 
-    receive_message(s)
+send_number(sock, message):
+    Method to pack and send integer value.
+
+    Arguments:
+        sock        -- This is the socket used for transmission.
+        message     -- This is the message to be sent.
+
+receive_message(sock):
     Method used to receive message from server.
 
     Arguments:
-        s       -- Thi is the socket used for transmission.
+        sock       -- Thi is the socket used for transmission.
+
+ecvall(sock, n):
+    Helper method used to get entire file transmission.
+
+    Arguments:
+        sock        -- This is the socket used for transmission.
+        n           -- This is the number of bytes being transmitted.
+
+make_request(conn, cmd, data):
+    Method to make initial request to server.
+
+    Arguments:
+        conn        -- This is the socket used for transmission.
+        cmd         -- This is the command to be sent to the server.
+        data        -- This is the port for data to be transmitted on.
+
+receive_file(conn, filename):
+    Method to receive file
+
+    Arguments:
+        conn        -- This is the socket used for transmission.
+        filename    -- This is the file to be transmitted.
 """
 import socket
 import sys
@@ -39,8 +74,8 @@ def initiate_contact(host, port):
     """Method used to initiate contact with server.
 
     Arguments:
-        HOST    -- This is the hostname for the server.
-        PORT    -- This is the port that the chatserver is running on.
+        host    -- This is the hostname for the server.
+        port    -- This is the port that the ftserver is running on.
     """
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect((host, port))
@@ -48,6 +83,10 @@ def initiate_contact(host, port):
 
 
 def get_dir(sock):
+    """Method to get contents of server directory.
+    Arguments:
+        sock        -- This is the socket used for transmission.
+    """
     data_size = sock.recv(4)
     data_size = unpack("I", data_size)
     received = str(sock.recv(data_size[0]), encoding="UTF-8").split("\x00")
@@ -60,13 +99,20 @@ def send_message(sock, message):
     """Method used to send message to server.
 
     Arguments:
-        s       -- This is the socket used for transmission.
+        sock        -- This is the socket used for transmission.
+        message     -- This is the message to be sent.
     """
     to_send = bytes(message, encoding="UTF-8")
     sock.sendall(to_send)
 
 
 def send_number(sock, message):
+    """Method to pack and send integer value.
+
+    Arguments:
+        sock        -- This is the socket used for transmission.
+        message     -- This is the message to be sent.
+    """
     to_send = pack('i', message)
     sock.send(to_send)
 
@@ -75,7 +121,7 @@ def receive_message(sock):
     """Method used to receive message from server.
 
     Arguments:
-        s       -- Thi is the socket used for transmission.
+        sock       -- Thi is the socket used for transmission.
     """
     data_size = sock.recv(4)
     data_size = unpack("I", data_size)
@@ -84,6 +130,12 @@ def receive_message(sock):
 
 
 def recvall(sock, n):
+    """Helper method used to get entire file transmission.
+
+    Arguments:
+        sock        -- This is the socket used for transmission.
+        n           -- This is the number of bytes being transmitted.
+    """
     received = ""
     while len(received) < n:
         packet = str(sock.recv(n - len(received)), encoding="UTF-8")
@@ -94,11 +146,24 @@ def recvall(sock, n):
 
 
 def make_request(conn, cmd, data):
+    """Method to make initial request to server.
+
+    Arguments:
+        conn        -- This is the socket used for transmission.
+        cmd         -- This is the command to be sent to the server.
+        data        -- This is the port for data to be transmitted on.
+    """
     send_message(conn, cmd + "\0")
     send_number(conn, data)
 
 
 def receive_file(conn, filename):
+    """Method to receive file
+
+    Arguments:
+        conn        -- This is the socket used for transmission.
+        filename    -- This is the file to be transmitted.
+    """
     buffer = receive_message(conn)
     if path.isfile(filename):
         filename = filename.split(".")[0] + "_copy.txt"
@@ -108,14 +173,14 @@ def receive_file(conn, filename):
 
 
 if __name__ == '__main__':
-    """This is the main driver for the chat client.
+    """This is the main driver for the server client.
 
     It confirms that the proper input was provided by the user. If the proper input was not provided the program
-    exits. The user is also prompted for a handler of 1 - 10 characters.
+    exits and displays usage.
 
     Once input has been confirmed contact is initiated with the server.
 
-    A while loop then continues until the user send \quit or the server sends \quit.
+    Depending on the command, data is received from the client.
     """
     arg_length = len(sys.argv)
     if arg_length < 5 or arg_length > 6:
@@ -138,9 +203,11 @@ if __name__ == '__main__':
     if command not in ["-g", "-l"]:
         raise ValueError("The only commands accepted are -g or -l!")
 
+    # Start server socket and make initial request
     server = initiate_contact(host, port)
     make_request(server, command, data_port)
 
+    # If the command is l, wait for the server to transmit the directory contents on the data port.
     if command == "-l":
         sleep(1)
         data = initiate_contact(host, data_port)
@@ -148,6 +215,7 @@ if __name__ == '__main__':
         get_dir(data)
         data.close()
 
+    # If the command is g, wait for the server to transmit the file. The file is then saved to the local machine.
     if command == "-g":
         send_number(server, len(filename))
         send_message(server, filename + "\0")
