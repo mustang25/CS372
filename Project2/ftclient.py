@@ -141,22 +141,34 @@ if __name__ == '__main__':
     send_port(server, data_port)
 
     if command == "-l":
-        print(host)
-        print(port)
-        print("starting data socket!")
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        print("socket created")
-        s.bind(("0.0.0.0", data_port))
-        print("starting to listen!")
-        print(host)
-        s.listen(10)
-        (conn, addr) = s.accept()
 
-        print(addr, "Just connected")
-        print("In conn...")
-        data_size = conn.recv(4)
-        data_size = unpack("I", data_size)
-        received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("0.0.0.0", data_port))
+            s.listen(1)
+            conn, addr = s.accept()
+            with conn:
+                print('Connected by', addr)
+                while True:
+                    data_size = conn.recv(4)
+                    data_size = unpack("I", data_size)
+                    received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
+                    break
+        # print(host)
+        # print(port)
+        # print("starting data socket!")
+        # s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # print("socket created")
+        # s.bind(("0.0.0.0", data_port))
+        # print("starting to listen!")
+        # print(host)
+        # s.listen(10)
+        # (conn, addr) = s.accept()
+        #
+        # print(addr, "Just connected")
+        # print("In conn...")
+        # data_size = conn.recv(4)
+        # data_size = unpack("I", data_size)
+        # received = str(conn.recv(data_size[0]), encoding="UTF-8").split("\x00")
 
         conn.close()
         s.close()
