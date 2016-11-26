@@ -291,7 +291,9 @@ int main(int argc, char *argv[]) {
                 startUpData(&datasockfd,&data_clilen, &data_cli_addr, dataPort, clientIP);
                 printf("Connection Established!\n");
                 sendNumber(datasockfd, length);
+                printf("Number sent!\n");
                 while (path[i] != NULL) {
+                    ("Sending contents %d", i);
                     sendMessage(datasockfd, path[i]);
                     i++;
                 }
